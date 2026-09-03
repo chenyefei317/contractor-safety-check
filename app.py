@@ -1,5 +1,6 @@
 import datetime
 import io
+import re
 import zipfile
 from docx import Document
 from docx.oxml.ns import qn
@@ -50,7 +51,7 @@ st.write(
 # 1. 前置检查项 (已取消原第3项保险证明)
 st.subheader("1. 承包商资信与资质审核 (入场必选)")
 q1_1 = st.checkbox("1）企业资质类资料--基础证照：有效的营业执照（须上传）")
-q1_2 = st.checkbox("2）提供甲乙双方盖章的承包商安全协议（须上传）")
+q1_2 = st.checkbox("2）提交甲乙双方盖章的承包商安全协议（须上传）")
 
 # 2. 现场人员资质与基础保障
 st.subheader("2. 现场人员资质与基础保障 (入场必选)")
@@ -64,13 +65,13 @@ q2_3 = st.checkbox("3）作业人员的身份证复印件（须上传）。")
 
 st.subheader("3. 特种/高危作业特批 (按需填写，无则留空)")
 q3_1 = st.checkbox("【动火作业】如涉及动火或切割产生明火作业，申请报备。")
-id_3_1 = st.text_input("备选特种作业人员 (动火) 身份证号：", key="id_fire")
+id_3_1 = st.text_input("备选特种作业人员 (动火) 18位身份证号：", key="id_fire")
 
 q3_2 = st.checkbox("【电工作业】如涉及电工 (低压作业), 申请报备。")
-id_3_2 = st.text_input("备选特种作业人员 (电工) 身份证号：", key="id_elec")
+id_3_2 = st.text_input("备选特种作业人员 (电工) 18位身份证号：", key="id_elec")
 
 q3_3 = st.checkbox("【登高作业】如涉及登高作业，申请报备。")
-id_3_3 = st.text_input("备选特种作业人员 (登高) 身份证号：", key="id_high")
+id_3_3 = st.text_input("备选特种作业人员 (登高) 18位身份证号：", key="id_high")
 
 # 4. 文件/证件上传区域
 st.subheader("4. 相关证明材料上传")
@@ -110,13 +111,27 @@ canvas_result = st_canvas(
 if st.button("📁 确认无误，生成完整校验报告并打包下载"):
   base_passed = q1_1 and q1_2 and q2_1 and q2_2 and q2_3
 
+  # 特种作业身份证非空与18位格式校验
   missing_ids = []
-  if q3_1 and not id_3_1.strip():
-    missing_ids.append("动火作业")
-  if q3_2 and not id_3_2.strip():
-    missing_ids.append("电工作业")
-  if q3_3 and not id_3_3.strip():
-    missing_ids.append("登高作业")
+  invalid_ids = []
+
+  if q3_1:
+    if not id_3_1.strip():
+      missing_ids.append("动火作业")
+    elif not re.match(r"^\d{17}[\dXx]$", id_3_1.strip()):
+      invalid_ids.append("动火作业")
+
+  if q3_2:
+    if not id_3_2.strip():
+      missing_ids.append("电工作业")
+    elif not re.match(r"^\d{17}[\dXx]$", id_3_2.strip()):
+      invalid_ids.append("电工作业")
+
+  if q3_3:
+    if not id_3_3.strip():
+      missing_ids.append("登高作业")
+    elif not re.match(r"^\d{17}[\dXx]$", id_3_3.strip()):
+      invalid_ids.append("登高作业")
 
   if not base_passed:
     st.error(
@@ -124,7 +139,11 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     )
   elif missing_ids:
     st.warning(
-        f"⚠️ 拦截：您勾选了特种作业申请（{'、'.join(missing_ids)}），请务必在上方填写对应的作业人员身份证号！"
+        f"⚠️ 拦截：您勾选了特种作业申请（{'、'.join(missing_ids)}），请务必填写对应的作业人员身份证号！"
+    )
+  elif invalid_ids:
+    st.warning(
+        f"⚠️ 格式错误：{'、'.join(invalid_ids)}的身份证号格式不正确（须为标准的18位身份证号，末尾可为数字或X）。"
     )
   elif not declaration or not checker_name:
     st.warning("⚠️ 流程未完成：请勾选【自我承诺】并填写【承诺人姓名】。")
@@ -194,14 +213,13 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         "*(点击上方按钮可直接调起浏览器的打印机或选择“另存为 PDF”)*"
     )
 
-    # === 导出 Word (.docx) 文件流（华文宋体、取消所有粗体、仅“须上传”文字设为绿色且不加粗） ===
+    # === 导出 Word (.docx) 文件流 ===
     doc = Document()
 
     style = doc.styles["Normal"]
     style.font.name = "华文宋体"
     style.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
-    # 大标题：不加粗
     h1 = doc.add_heading(level=1)
     run_h1 = h1.add_run("承包商入场EHS审核与承诺书")
     run_h1.bold = False
@@ -243,7 +261,6 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
       row_cells[0].text = ""
       p0 = row_cells[0].paragraphs[0]
 
-      # 如果包含“须上传”，将“须上传”文字设为绿色（不加粗）
       if "须上传" in proj_text:
         parts = proj_text.split("（须上传）")
         run0_1 = p0.add_run(parts[0])
@@ -253,7 +270,7 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
 
         run0_2 = p0.add_run("（须上传）")
         run0_2.bold = False
-        run0_2.font.color.rgb = RGBColor(0, 128, 0)  # 绿色
+        run0_2.font.color.rgb = RGBColor(0, 128, 0)
         run0_2.font.name = "华文宋体"
         run0_2.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
