@@ -20,16 +20,22 @@ with st.sidebar:
         qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={app_url}"
         st.image(qr_api_url, caption="手机相机/支付宝/浏览器扫码", width=200)
 
+# === 顶部引入公司 Logo (需在同目录下放一个名为 logo.png 的图片文件) ===
+try:
+    st.image("logo.png", width=220)
+except Exception:
+    pass
+
 st.title("👷 承包商入场EHS审核与承诺书")
 st.write("依据《安全生产法》及 **宜家供应商IWAY6.0合规风险与管控要求**，请在入场前逐项核实、上传证明并签字。个人开发工具，严禁商业用途。")
 
-# 1. 前置检查项 (已按最新需求修改)
+# 1. 前置检查项 
 st.subheader("1. 承包商资信与资质审核 (入场必选)")
 q1_1 = st.checkbox("1）企业资质类资料--基础证照：有效的营业执照（须上传）")
 q1_2 = st.checkbox("2）提交甲乙双方盖章的承包商安全协议（须上传）")
 q1_3 = st.checkbox("3）保险证明：施工人员工伤保险缴纳证明，或商业保险证明（须上传）")
 
-# 2. 现场人员资质与基础保障 (已按最新需求修改)
+# 2. 现场人员资质与基础保障 
 st.subheader("2. 现场人员资质与基础保障 (入场必选)")
 q2_1 = st.checkbox("1）提供承包商员工入厂安全培训记录（注：需在入场施工前完成并确认）。")
 q2_2 = st.checkbox("2）提供承包商施工人员工伤保险缴纳证明或意外伤害保险缴纳证明（须上传）。")
@@ -79,10 +85,9 @@ canvas_result = st_canvas(
 
 # 提交并生成最终统一报告
 if st.button("📁 确认无误，生成完整校验报告并打包下载"):
-    # 基础项校验 (确保1、2部分的6个选项全部勾选)
     base_passed = q1_1 and q1_2 and q1_3 and q2_1 and q2_2 and q2_3
     
-    # === 保留了特种作业身份证非空校验 ===
+    # 特种作业身份证非空拦截校验
     missing_ids = []
     if q3_1 and not id_3_1.strip():
         missing_ids.append("动火作业")
@@ -91,7 +96,6 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     if q3_3 and not id_3_3.strip():
         missing_ids.append("登高作业")
     
-    # 拦截校验逻辑
     if not base_passed:
         st.error("❌ 警告：第 1 和第 2 部分为基础必选项！未全部落实前，绝对禁止办理入场。")
     elif missing_ids:
@@ -107,7 +111,6 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         status_3_2 = f"已报备 (身份证: {id_3_2})" if q3_2 else "未涉及此作业"
         status_3_3 = f"已报备 (身份证: {id_3_3})" if q3_3 else "未涉及此作业"
         
-        # 更新了后台生成的 CSV 表格字段，使其与最新的题目完全匹配
         data = {
             "安全核验管控项目": [
                 "企业资质 - 有效的营业执照", 
@@ -153,18 +156,15 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         # === 内存中动态打包 ZIP ===
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            # 1. 写入 CSV 表格数据
             csv_bytes = df.to_csv(index=False).encode('utf-8-sig')
             csv_filename = f"承包商入场核验_{checker_name}_{commit_date}.csv"
             zip_file.writestr(csv_filename, csv_bytes)
             
-            # 2. 写入手写签名图片
             img_byte_arr = io.BytesIO()
             signature_img.save(img_byte_arr, format='PNG')
             img_filename = f"签名_{checker_name}_{commit_date}.png"
             zip_file.writestr(img_filename, img_byte_arr.getvalue())
             
-            # 3. 写入承包商上传的证明文件
             if uploaded_files:
                 for idx, uploaded_file in enumerate(uploaded_files):
                     file_ext = uploaded_file.name.split('.')[-1]
