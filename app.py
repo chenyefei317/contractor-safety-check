@@ -9,7 +9,7 @@ from streamlit_drawable_canvas import st_canvas
 
 st.set_page_config(page_title="承包商入场安全校验", layout="centered")
 
-# 侧边栏：手机端/网页端扫码填报支持 (已内置您的专属公网链接)
+# 侧边栏：手机端/网页端扫码填报支持
 with st.sidebar:
     st.header("📱 扫码/网页端填报")
     st.write("承包商可通过手机扫描二维码或直接打开链接进行填报与资料上传。")
@@ -21,17 +21,19 @@ with st.sidebar:
         st.image(qr_api_url, caption="手机相机/支付宝/浏览器扫码", width=200)
 
 st.title("👷 承包商入场及高危作业安全校验与承诺书")
-st.write("依据《安全生产法》及 **宜家供应商IWAY合规风险与管控要求**，请在入场前逐项核实、上传证明并签字。")
+st.write("依据《安全生产法》及 **宜家供应商IWAY6.0合规风险与管控要求**，请在入场前逐项核实、上传证明并签字。内部管理工具，严禁商业用途")
 
-# 1. 前置检查项
+# 1. 前置检查项 (已按最新需求修改)
 st.subheader("1. 承包商资信与资质审核 (入场必选)")
-q1_1 = st.checkbox("【资质】提供承包商营业执照、安全生产许可证及相关专业施工作业资质。")
-q1_2 = st.checkbox("【资信】无重大安全、环保事故不良记录。")
-q1_3 = st.checkbox("【协议】签订专业承包商安全协议，不免除或转嫁本企业的统一协调、管理义务。")
+q1_1 = st.checkbox("1）企业资质类资料--基础证照：有效的营业执照")
+q1_2 = st.checkbox("2）提交承包商安全协议（甲乙双方盖章）")
+q1_3 = st.checkbox("3）保险证明：施工人员工伤保险缴纳证明，或商业保险证明")
 
+# 2. 现场人员资质与基础保障 (已按最新需求修改)
 st.subheader("2. 现场人员资质与基础保障 (入场必选)")
-q2_1 = st.checkbox("【培训】提供承包商员工岗位危害告知及入厂安全培训记录。")
-q2_2 = st.checkbox("【保险】提供有效的工伤保险凭证（入职当天覆盖，含职业病及伤残/死亡赔偿）。")
+q2_1 = st.checkbox("1）【培训】提供承包商员工入厂安全培训记录（注：需在现场完成并确认）。")
+q2_2 = st.checkbox("2）提供承包商施工人员工伤保险缴纳证明或意外伤害保险缴纳证明。")
+q2_3 = st.checkbox("3）作业人员的身份证复印件。")
 
 st.subheader("3. 特种/高危作业特批 (按需填写，无则留空)")
 q3_1 = st.checkbox("【动火作业】如涉及动火或切割产生明火作业，申请报备。")
@@ -43,7 +45,7 @@ id_3_2 = st.text_input("备选特种作业人员 (电工) 身份证号：", key=
 q3_3 = st.checkbox("【登高作业】如涉及登高作业，申请报备。")
 id_3_3 = st.text_input("备选特种作业人员 (登高) 身份证号：", key="id_high")
 
-# === 新增：文件/证件上传区域 ===
+# 4. 文件/证件上传区域 (保持不变)
 st.subheader("4. 相关证明材料上传")
 st.write("请上传营业执照、工伤保险证明、特种作业操作证等相关证件照片或扫描件（支持多选）。")
 uploaded_files = st.file_uploader(
@@ -75,9 +77,10 @@ canvas_result = st_canvas(
     key="canvas",
 )
 
-# 2. 提交并生成最终统一报告
+# 提交并生成最终统一报告
 if st.button("📁 确认无误，生成完整校验报告并打包下载"):
-    base_passed = q1_1 and q1_2 and q1_3 and q2_1 and q2_2
+    # 加入了 q2_3 身份证复印件的必选校验
+    base_passed = q1_1 and q1_2 and q1_3 and q2_1 and q2_2 and q2_3
     
     if not base_passed:
         st.error("❌ 警告：第 1 和第 2 部分为基础必选项！未全部落实前，绝对禁止办理入场。")
@@ -92,9 +95,30 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         status_3_2 = f"已报备 (身份证: {id_3_2})" if q3_2 else "未涉及此作业"
         status_3_3 = f"已报备 (身份证: {id_3_3})" if q3_3 else "未涉及此作业"
         
+        # 更新了后台生成的 CSV 表格字段，使其与最新的题目匹配
         data = {
-            "安全核验管控项目": ["提供承包商资质审核", "无重大安全环保不良记录", "签订专业承包商安全协议", "提供入场安全培训记录", "提供工伤保险/等效保险凭证", "特种作业报备：动火作业", "特种作业报备：电工作业", "特种作业报备：登高作业"],
-            "现场确认结果": ["合格 / 已提供", "合格 / 已确认", "合格 / 已签订", "合格 / 已提供", "合格 / 已提供", status_3_1, status_3_2, status_3_3]
+            "安全核验管控项目": [
+                "企业资质 - 有效的营业执照", 
+                "企业资质 - 承包商安全协议", 
+                "企业资质 - 保险缴纳证明", 
+                "人员资质 - 入厂安全培训记录", 
+                "人员资质 - 施工人员保险证明", 
+                "人员资质 - 身份证复印件",
+                "特种作业报备：动火作业", 
+                "特种作业报备：电工作业", 
+                "特种作业报备：登高作业"
+            ],
+            "现场确认结果": [
+                "合格 / 已提供", 
+                "合格 / 已签订", 
+                "合格 / 已提供", 
+                "合格 / 现场已确认", 
+                "合格 / 已提供", 
+                "合格 / 已提供",
+                status_3_1, 
+                status_3_2, 
+                status_3_3
+            ]
         }
         
         df = pd.DataFrame(data)
@@ -114,7 +138,7 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         signature_img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
         st.image(signature_img, width=400, caption=f"承诺人：{checker_name}")
         
-        # === 内存中动态打包 ZIP（包含 CSV、手写签名、以及上传的所有证件文件） ===
+        # === 内存中动态打包 ZIP ===
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             # 1. 写入 CSV 表格数据
@@ -140,7 +164,6 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         st.balloons() 
         st.success("🎉 合规档案与证件已全部打包完毕！点击下方按钮即可一键下载：")
         
-        # 提供下载按钮
         zip_filename = f"承包商安全合规档案及证件_{checker_name}_{commit_date}.zip"
         st.download_button(
             label="📥 下载本场完整合规档案 (含清单、签名与上传证件)",
