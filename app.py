@@ -6,6 +6,7 @@ import zipfile
 import numpy as np
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
+from docx import Document
 
 st.set_page_config(page_title="承包商入场EHS审核与承诺书", layout="centered")
 
@@ -20,9 +21,9 @@ with st.sidebar:
         qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={app_url}"
         st.image(qr_api_url, caption="手机相机/支付宝/浏览器扫码", width=200)
 
-# === 顶部引入公司 Logo (需在同目录下放一个名为 logo.png 的图片文件) ===
+# === 顶部 Logo (尺寸调小至 width=120) ===
 try:
-    st.image("logo.png", width=220)
+    st.image("logo.png", width=120)
 except Exception:
     pass
 
@@ -87,7 +88,6 @@ canvas_result = st_canvas(
 if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     base_passed = q1_1 and q1_2 and q1_3 and q2_1 and q2_2 and q2_3
     
-    # 特种作业身份证非空拦截校验
     missing_ids = []
     if q3_1 and not id_3_1.strip():
         missing_ids.append("动火作业")
@@ -153,7 +153,49 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         signature_img = Image.fromarray(canvas_result.image_data.astype('uint8'), 'RGBA')
         st.image(signature_img, width=400, caption=f"承诺人：{checker_name}")
         
-        # === 内存中动态打包 ZIP ===
+        # === 新增功能 1：直接打印 / 另存为 PDF 按钮 ===
+        st.markdown("---")
+        st.markdown("### 🖨️ 文档操作选项")
+        st.markdown(
+            """
+            <button onclick="window.print()" style="background-color: #ff4b4b; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px;">
+                🖨️ 直接打印网页 / 另存为 PDF
+            </button>
+            """,
+            unsafe_allow_html=True
+        )
+        st.write("*(点击上方按钮可直接调起浏览器的打印机或选择“另存为 PDF”)*")
+
+        # === 新增功能 2：生成 Word (.docx) 文件流 ===
+        doc = Document()
+        doc.add_heading('承包商入场EHS审核与承诺书', level=1)
+        doc.add_paragraph(f'承诺人：{checker_name}    承诺日期：{commit_date}')
+        
+        table = doc.add_table(rows=len(df) + 1, cols=2)
+        table.style = 'Table Grid'
+        table.cell(0, 0).text = '安全核验管控项目'
+        table.cell(0, 1).text = '现场确认结果'
+        for i, row in df.iterrows():
+            table.cell(i + 1, 0).text = str(row['安全核验管控项目'])
+            table.cell(i + 1, 1).text = str(row['现场确认结果'])
+            
+        doc.add_paragraph(f'\n声明承诺人签名：{checker_name}')
+        doc_buffer = io.BytesIO()
+        doc.save(doc_buffer)
+        doc_buffer.seek(0)
+
+        col_w, col_z = st.columns(2)
+        with col_w:
+            # 导出 Word 按钮
+            docx_filename = f"承包商入场核验_{checker_name}_{commit_date}.docx"
+            st.download_button(
+                label="📄 导出 Word 文档 (.docx)",
+                data=doc_buffer,
+                file_name=docx_filename,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
+
+        # === 原有：内存中动态打包 ZIP ===
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             csv_bytes = df.to_csv(index=False).encode('utf-8-sig')
@@ -173,13 +215,13 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
             
         zip_buffer.seek(0)
         
-        st.balloons() 
-        st.success("🎉 合规档案与证件已全部打包完毕！点击下方按钮即可一键下载：")
-        
-        zip_filename = f"承包商安全合规档案及证件_{checker_name}_{commit_date}.zip"
-        st.download_button(
-            label="📥 下载本场完整合规档案 (含清单、签名与上传证件)",
-            data=zip_buffer,
-            file_name=zip_filename,
-            mime="application/zip"
-        )
+        with col_z:
+            zip_filename = f"承包商安全合规档案及证件_{checker_name}_{commit_date}.zip"
+            st.download_button(
+                label="📥 打包下载全部档案 (含清单、签名与凭证 ZIP)",
+                data=zip_buffer,
+                file_name=zip_filename,
+                mime="application/zip"
+            )
+            
+        st.balloons()
