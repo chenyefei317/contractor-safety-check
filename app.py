@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
 
-st.set_page_config(page_title="承包商入场安全校验", layout="centered")
+st.set_page_config(page_title="承包商入场EHS审核与承诺书", layout="centered")
 
 # 侧边栏：手机端/网页端扫码填报支持
 with st.sidebar:
@@ -45,7 +45,7 @@ id_3_2 = st.text_input("备选特种作业人员 (电工) 身份证号：", key=
 q3_3 = st.checkbox("【登高作业】如涉及登高作业，申请报备。")
 id_3_3 = st.text_input("备选特种作业人员 (登高) 身份证号：", key="id_high")
 
-# 4. 文件/证件上传区域 (保持不变)
+# 4. 文件/证件上传区域 
 st.subheader("4. 相关证明材料上传")
 st.write("请上传营业执照、工伤保险证明、特种作业操作证等相关证件照片或扫描件（支持多选）。")
 uploaded_files = st.file_uploader(
@@ -79,11 +79,23 @@ canvas_result = st_canvas(
 
 # 提交并生成最终统一报告
 if st.button("📁 确认无误，生成完整校验报告并打包下载"):
-    # 加入了 q2_3 身份证复印件的必选校验
+    # 基础项校验 (确保1、2部分的6个选项全部勾选)
     base_passed = q1_1 and q1_2 and q1_3 and q2_1 and q2_2 and q2_3
     
+    # === 保留了特种作业身份证非空校验 ===
+    missing_ids = []
+    if q3_1 and not id_3_1.strip():
+        missing_ids.append("动火作业")
+    if q3_2 and not id_3_2.strip():
+        missing_ids.append("电工作业")
+    if q3_3 and not id_3_3.strip():
+        missing_ids.append("登高作业")
+    
+    # 拦截校验逻辑
     if not base_passed:
         st.error("❌ 警告：第 1 和第 2 部分为基础必选项！未全部落实前，绝对禁止办理入场。")
+    elif missing_ids:
+        st.warning(f"⚠️ 拦截：您勾选了特种作业申请（{'、'.join(missing_ids)}），请务必在上方填写对应的作业人员身份证号！")
     elif not declaration or not checker_name:
         st.warning("⚠️ 流程未完成：请勾选【自我承诺】并填写【承诺人姓名】。")
     elif canvas_result.image_data is None:
@@ -95,7 +107,7 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         status_3_2 = f"已报备 (身份证: {id_3_2})" if q3_2 else "未涉及此作业"
         status_3_3 = f"已报备 (身份证: {id_3_3})" if q3_3 else "未涉及此作业"
         
-        # 更新了后台生成的 CSV 表格字段，使其与最新的题目匹配
+        # 更新了后台生成的 CSV 表格字段，使其与最新的题目完全匹配
         data = {
             "安全核验管控项目": [
                 "企业资质 - 有效的营业执照", 
@@ -109,12 +121,12 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
                 "特种作业报备：登高作业"
             ],
             "现场确认结果": [
-                "合格 / 已提供", 
-                "合格 / 已签订", 
-                "合格 / 已提供", 
-                "合格 / 现场已确认", 
-                "合格 / 已提供", 
-                "合格 / 已提供",
+                "合格 / 承诺已上传", 
+                "合格 / 承诺已上传", 
+                "合格 / 承诺已上传", 
+                "合格 / 需现场确认", 
+                "合格 / 承诺已上传", 
+                "合格 / 承诺已上传",
                 status_3_1, 
                 status_3_2, 
                 status_3_3
