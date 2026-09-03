@@ -199,16 +199,17 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         "*(点击上方按钮可直接调起浏览器的打印机或选择“另存为 PDF”)*"
     )
 
-    # === 导出 Word (.docx) 文件流（华文宋体、大/小标题加粗、须上传加粗绿色） ===
+    # === 导出 Word (.docx) 文件流（华文宋体、取消所有粗体、仅“须上传”文字设为绿色且不加粗） ===
     doc = Document()
 
     style = doc.styles["Normal"]
     style.font.name = "华文宋体"
     style.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
+    # 大标题：不加粗
     h1 = doc.add_heading(level=1)
     run_h1 = h1.add_run("承包商入场EHS审核与承诺书")
-    run_h1.bold = True
+    run_h1.bold = False
     run_h1.font.name = "华文宋体"
     run_h1.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
@@ -216,13 +217,13 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     run_info = p_info.add_run(
         f"承诺人：{checker_name}    承诺日期：{commit_date}"
     )
-    run_info.bold = True
+    run_info.bold = False
     run_info.font.name = "华文宋体"
     run_info.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
     p_sub = doc.add_paragraph()
     run_sub = p_sub.add_run("安全核验管控项目清单：")
-    run_sub.bold = True
+    run_sub.bold = False
     run_sub.font.name = "华文宋体"
     run_sub.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
@@ -235,7 +236,7 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     for cell in hdr_cells:
       for paragraph in cell.paragraphs:
         for run in paragraph.runs:
-          run.bold = True
+          run.bold = False
           run.font.name = "华文宋体"
           run.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
@@ -246,22 +247,42 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
 
       row_cells[0].text = ""
       p0 = row_cells[0].paragraphs[0]
-      run0 = p0.add_run(proj_text)
-      run0.font.name = "华文宋体"
-      run0.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+
+      # 如果包含“须上传”，将“须上传”文字设为绿色（不加粗）
       if "须上传" in proj_text:
-        run0.bold = True
-        run0.font.color.rgb = RGBColor(0, 128, 0)
+        parts = proj_text.split("（须上传）")
+        run0_1 = p0.add_run(parts[0])
+        run0_1.bold = False
+        run0_1.font.name = "华文宋体"
+        run0_1.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+
+        run0_2 = p0.add_run("（须上传）")
+        run0_2.bold = False
+        run0_2.font.color.rgb = RGBColor(0, 128, 0)  # 绿色
+        run0_2.font.name = "华文宋体"
+        run0_2.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+
+        if len(parts) > 1 and parts[1]:
+          run0_3 = p0.add_run(parts[1])
+          run0_3.bold = False
+          run0_3.font.name = "华文宋体"
+          run0_3.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
+      else:
+        run0 = p0.add_run(proj_text)
+        run0.bold = False
+        run0.font.name = "华文宋体"
+        run0.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
       row_cells[1].text = ""
       p1 = row_cells[1].paragraphs[0]
       run1 = p1.add_run(res_text)
+      run1.bold = False
       run1.font.name = "华文宋体"
       run1.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
     p_sig = doc.add_paragraph()
     run_sig = p_sig.add_run(f"\n声明承诺人签名：{checker_name}")
-    run_sig.bold = True
+    run_sig.bold = False
     run_sig.font.name = "华文宋体"
     run_sig.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
