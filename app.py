@@ -20,7 +20,7 @@ with st.sidebar:
         qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={app_url}"
         st.image(qr_api_url, caption="手机相机/支付宝/浏览器扫码", width=200)
 
-st.title("👷 承包商入场及高危作业安全校验与承诺书")
+st.title("👷 承包商入场EHS审核与承诺书")
 st.write("依据《安全生产法》及 **宜家供应商IWAY6.0合规风险与管控要求**，请在入场前逐项核实、上传证明并签字。个人开发工具，严禁商业用途。")
 
 # 1. 前置检查项 (已按最新需求修改)
