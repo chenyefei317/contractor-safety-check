@@ -12,6 +12,16 @@ from streamlit_drawable_canvas import st_canvas
 
 st.set_page_config(page_title="承包商入场EHS审核与承诺书", layout="centered")
 
+# === 隐藏右上角 Streamlit 默认菜单、页脚及源码查看通道 ===
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    </style>
+    """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # 侧边栏：手机端/网页端扫码填报支持
 with st.sidebar:
   st.header("📱 扫码/网页端填报")
@@ -192,19 +202,16 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     # === 导出 Word (.docx) 文件流（华文宋体、大/小标题加粗、须上传加粗绿色） ===
     doc = Document()
 
-    # 设置默认西文字体与中文字体
     style = doc.styles["Normal"]
     style.font.name = "华文宋体"
     style.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
-    # 大标题加粗
     h1 = doc.add_heading(level=1)
     run_h1 = h1.add_run("承包商入场EHS审核与承诺书")
     run_h1.bold = True
     run_h1.font.name = "华文宋体"
     run_h1.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
-    # 小标题/副标题信息加粗
     p_info = doc.add_paragraph()
     run_info = p_info.add_run(
         f"承诺人：{checker_name}    承诺日期：{commit_date}"
@@ -222,7 +229,6 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     table = doc.add_table(rows=len(df) + 1, cols=2)
     table.style = "Table Grid"
 
-    # 表头加粗
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = "安全核验管控项目"
     hdr_cells[1].text = "现场确认结果"
@@ -233,13 +239,11 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
           run.font.name = "华文宋体"
           run.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
 
-    # 填充表格内容并对含有“须上传”的项设为加粗、绿色
     for i, row in df.iterrows():
       row_cells = table.rows[i + 1].cells
       proj_text = str(row["安全核验管控项目"])
       res_text = str(row["现场确认结果"])
 
-      # 列 1：安全核验管控项目
       row_cells[0].text = ""
       p0 = row_cells[0].paragraphs[0]
       run0 = p0.add_run(proj_text)
@@ -247,9 +251,8 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
       run0.font.element.rPr.rFonts.set(qn("w:eastAsia"), "华文宋体")
       if "须上传" in proj_text:
         run0.bold = True
-        run0.font.color.rgb = RGBColor(0, 128, 0)  # 绿色
+        run0.font.color.rgb = RGBColor(0, 128, 0)
 
-      # 列 2：现场确认结果
       row_cells[1].text = ""
       p1 = row_cells[1].paragraphs[0]
       run1 = p1.add_run(res_text)
