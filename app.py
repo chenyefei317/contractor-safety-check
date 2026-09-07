@@ -8,17 +8,25 @@ from docx.shared import RGBColor, Pt
 import numpy as np
 from PIL import Image
 import pandas as pd
+import qrcode
 import streamlit as st
 from streamlit_drawable_canvas import st_canvas
 
-st.set_page_config(page_title="承包商入场EHS审核与承诺书", layout="centered")
+# 强制默认展开侧边栏，防止手机端自动收起
+st.set_page_config(
+    page_title="承包商入场EHS审核与承诺书",
+    layout="centered",
+    initial_sidebar_state="expanded",
+)
 
-# === 隐藏右上角 Streamlit 默认菜单、页脚及源码查看通道 ===
+# === 隐藏右上角菜单、水印与代码查看通道，但保留侧边栏展开按钮 ===
 hide_streamlit_style = """
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    [data-testid="stToolbar"] {visibility: hidden;}
+    [data-testid="stDecoration"] {visibility: hidden;}
+    [data-testid="stStatusWidget"] {visibility: hidden;}
     </style>
     """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
@@ -34,8 +42,17 @@ with st.sidebar:
   )
 
   if app_url:
-    qr_api_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={app_url}"
-    st.image(qr_api_url, caption="手机相机/支付宝/浏览器扫码", width=200)
+    # 使用本地 qrcode 库生成二维码，杜绝外网接口超时失效
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=6,
+        border=2,
+    )
+    qr.add_data(app_url)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white")
+    st.image(qr_img, caption="手机相机/支付宝/浏览器扫码", width=200)
 
 # === 顶部 Logo (尺寸调整为 width=120) ===
 try:
@@ -44,7 +61,6 @@ except Exception:
   pass
 
 st.title("👷 承包商入场EHS审核与承诺书")
-# 宜家供应商IWAY6.0合规风险与管控要求 取消粗体
 st.write(
     "依据《安全生产法》及 宜家供应商IWAY6.0合规风险与管控要求，请在入场前逐项核实、上传证明并签字。个人开发工具，严禁商业用途。"
 )
@@ -100,7 +116,6 @@ with col2:
 
 st.write("---")
 st.write("✍️ **请在下方空白处手写签名：**")
-# 配置 return_image_data=True 彻底解决新版组件的 RuntimeError 错误
 canvas_result = st_canvas(
     stroke_width=3,
     stroke_color="#000000",
@@ -116,7 +131,6 @@ canvas_result = st_canvas(
 if st.button("📁 确认无误，生成完整校验报告并打包下载"):
   base_passed = q1_1 and q1_2 and q2_1 and q2_2 and q2_3
 
-  # 特种作业身份证非空与18位格式校验
   missing_ids = []
   invalid_ids = []
 
@@ -138,7 +152,6 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     elif not re.match(r"^\d{17}[\dXx]$", id_3_3.strip()):
       invalid_ids.append("登高作业")
 
-  # 签名非空校验：兼顾 image_data 与笔画对象
   is_canvas_empty = canvas_result.image_data is None or (
       canvas_result.json_data is not None
       and len(canvas_result.json_data.get("objects", [])) == 0
