@@ -44,11 +44,12 @@ except Exception:
   pass
 
 st.title("👷 承包商入场EHS审核与承诺书")
+# 宜家供应商IWAY6.0合规风险与管控要求 取消粗体
 st.write(
-    "依据《安全生产法》及 **宜家供应商IWAY6.0合规风险与管控要求**，请在入场前逐项核实、上传证明并签字。个人开发工具，严禁商业用途。"
+    "依据《安全生产法》及 宜家供应商IWAY6.0合规风险与管控要求，请在入场前逐项核实、上传证明并签字。个人开发工具，严禁商业用途。"
 )
 
-# 1. 前置检查项 (已取消原第3项保险证明)
+# 1. 前置检查项
 st.subheader("1. 承包商资信与资质审核 (入场必选)")
 q1_1 = st.checkbox("1）企业资质类资料--基础证照：有效的营业执照（须上传）")
 q1_2 = st.checkbox("2）提供甲乙双方盖章的承包商安全协议（须上传）")
@@ -63,6 +64,7 @@ q2_2 = st.checkbox(
 )
 q2_3 = st.checkbox("3）作业人员的身份证复印件（须上传）。")
 
+# 3. 特种/高危作业特批
 st.subheader("3. 特种/高危作业特批 (按需填写，无则留空)")
 q3_1 = st.checkbox("【动火作业】如涉及动火或切割产生明火作业，申请报备。")
 id_3_1 = st.text_input("备选特种作业人员 (动火) 18位身份证号：", key="id_fire")
@@ -82,6 +84,7 @@ uploaded_files = st.file_uploader(
     "上传凭证/证件文件", type=["png", "jpg", "jpeg", "pdf"], accept_multiple_files=True
 )
 
+# 5. 自我承诺与声明
 st.subheader("5. 自我承诺与声明")
 st.info(
     "本人郑重承诺：以上勾选的核验项及上传的资料均真实有效，绝无弄虚作假。若因未落实安全防范措施而导致相关事故，愿承担相应的管理责任。"
@@ -97,6 +100,7 @@ with col2:
 
 st.write("---")
 st.write("✍️ **请在下方空白处手写签名：**")
+# 配置 return_image_data=True 彻底解决新版组件的 RuntimeError 错误
 canvas_result = st_canvas(
     stroke_width=3,
     stroke_color="#000000",
@@ -105,6 +109,7 @@ canvas_result = st_canvas(
     width=400,
     drawing_mode="freedraw",
     key="canvas",
+    return_image_data=True,
 )
 
 # 提交并生成最终统一报告
@@ -133,6 +138,12 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     elif not re.match(r"^\d{17}[\dXx]$", id_3_3.strip()):
       invalid_ids.append("登高作业")
 
+  # 签名非空校验：兼顾 image_data 与笔画对象
+  is_canvas_empty = canvas_result.image_data is None or (
+      canvas_result.json_data is not None
+      and len(canvas_result.json_data.get("objects", [])) == 0
+  )
+
   if not base_passed:
     st.error(
         "❌ 警告：第 1 和第 2 部分为基础必选项！未全部落实前，绝对禁止办理入场。"
@@ -147,7 +158,7 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
     )
   elif not declaration or not checker_name:
     st.warning("⚠️ 流程未完成：请勾选【自我承诺】并填写【承诺人姓名】。")
-  elif canvas_result.image_data is None:
+  elif is_canvas_empty:
     st.warning("⚠️ 请在上方画板完成手写签名后再提交。")
   else:
     st.success("✅ 核验与承诺通过！以下为本次入场的完整合规档案：")
@@ -213,7 +224,7 @@ if st.button("📁 确认无误，生成完整校验报告并打包下载"):
         "*(点击上方按钮可直接调起浏览器的打印机或选择“另存为 PDF”)*"
     )
 
-    # === 导出 Word (.docx) 文件流 ===
+    # === 导出 Word (.docx) 文件流（华文宋体、标题不加粗、“须上传”绿色不加粗） ===
     doc = Document()
 
     style = doc.styles["Normal"]
