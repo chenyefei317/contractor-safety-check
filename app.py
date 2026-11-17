@@ -593,7 +593,6 @@ with tab1:
                 "作业类别": "、".join(work_types),
                 "特种作业证号": cert_number,
                 "证照数量": len(cert_bytes_list),
-                "证照图片列表": cert_b64_list,
                 "证照Bytes列表": cert_bytes_list,
                 "签名Bytes列表": sig_bytes_list,
                 "签名图片B64": first_sig_b64,
@@ -612,19 +611,18 @@ with tab2:
     
     st.session_state.records = load_records()
     
-    # 显眼的管理操作：清空台账按钮（直接平铺显示在表格上方）
-    if len(st.session_state.records) > 0:
-        st.markdown("---")
-        col_c1, col_c2 = st.columns([2, 5])
-        with col_c1:
-            if st.button("🗑️ 清空所有历史台账记录（归0）", type="primary", use_container_width=True):
-                st.session_state.records = []
-                save_records([])
-                st.success("✅ 所有台账记录已成功清空并归零！")
-                st.rerun()
-        with col_c2:
-            st.warning("⚠️ 提示：点击左侧按钮将永久清空后台所有历史台账数据，建议清空前先点下方按钮导出 Excel 备份！")
-        st.markdown("---")
+    # 醒目的清空按钮：直接放在台账表格正上方
+    st.markdown("---")
+    col_btn, col_txt = st.columns([2, 5])
+    with col_btn:
+        if st.button("🗑️ 清空所有历史台账记录（归0）", type="primary", use_container_width=True):
+            st.session_state.records = []
+            save_records([])
+            st.success("✅ 所有台账记录已成功清空并归零！")
+            st.rerun()
+    with col_txt:
+        st.warning("⚠️ 点击左侧按钮将永久清空后台所有历史台账数据，清空前请先点击下方按钮导出 Excel 备份！")
+    st.markdown("---")
 
     if len(st.session_state.records) == 0:
         st.info("暂无签到记录，请先在第一个标签页完成提交。")
@@ -639,7 +637,7 @@ with tab2:
         st.download_button(
             label="📥 导出培训台账 (Excel CSV)",
             data=csv_data,
-            file_name=f"慧瑞承包商安全培训台账_{datetime.now().strftime('%Y%m%d')}.csv",
+            file_name=f"慧瑞环保涂料安全培训台账_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv"
         )
 
