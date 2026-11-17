@@ -8,6 +8,7 @@ import os
 import json
 import base64
 import random
+import urllib.request
 from fpdf import FPDF
 import qrcode
 
@@ -26,7 +27,6 @@ def load_records():
         try:
             with open(RECORD_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                # 兼容处理：将 JSON 中的 Base64 签名/证照还原为字节流供 PDF 使用
                 for rec in data:
                     if "签名Bytes列表_b64" in rec:
                         rec["签名Bytes列表"] = [base64.b64decode(b) for b in rec["签名Bytes列表_b64"]]
@@ -38,7 +38,6 @@ def load_records():
     return []
 
 def save_records(records):
-    # 将包含二进制字节的内容转换为 Base64 字符串以便 JSON 序列化存储
     serializable_records = []
     for rec in records:
         r_copy = rec.copy()
@@ -48,7 +47,6 @@ def save_records(records):
         if "证照Bytes列表" in r_copy:
             r_copy["证照图片列表_b64"] = [(name, base64.b64encode(b).decode("utf-8")) for name, b in r_copy["证照Bytes列表"] if isinstance(b, bytes)]
             r_copy.pop("证照Bytes列表", None)
-        # 移除不可序列化的键
         r_copy.pop("证照图片列表", None)
         serializable_records.append(r_copy)
         
@@ -58,7 +56,6 @@ def save_records(records):
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# 初始化记录到 session_state 中并从文件读取
 if "records" not in st.session_state:
     st.session_state.records = load_records()
 
@@ -196,18 +193,32 @@ def generate_qr_code(url):
     return buffered.getvalue()
 
 def get_font_path():
-    """智能查找系统中可用的通用/开源中文字体路径"""
+    """智能查找系统字体，若云端缺失则自动从开源镜像下载"""
+    font_filename = "NotoSansSC-Regular.ttf"
+    if os.path.exists(font_filename):
+        return font_filename
+        
     possible_paths = [
-        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",  # Linux 云端文泉驿开源字体
-        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Linux 思源黑体
-        "/System/Library/Fonts/STHeiti Medium.ttc",     # Mac 华文黑体
-        "/System/Library/Fonts/PingFang.ttc",           # Mac 苹方字体
-        "C:\Windows\Fonts\msyh.ttc",                  # Windows 微软雅黑
-        "C:\Windows\Fonts\simhei.ttf"                 # Windows 黑体
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/PingFang.ttc",
+        "C:\\Windows\\Fonts\\msyh.ttc",
+        "C:\\Windows\\Fonts\\simhei.ttf"
     ]
     for path in possible_paths:
         if os.path.exists(path):
             return path
+            
+    # 自动从开源镜像下载轻量中文字体保底
+    try:
+        font_url = "https://github.com/google/fonts/raw/main/ofl/notosanssc/NotoSansSC-Regular.ttf"
+        urllib.request.urlretrieve(font_url, font_filename)
+        if os.path.exists(font_filename):
+            return font_filename
+    except Exception:
+        pass
+        
     return None
 
 # ================= 核心模块：生成独立 PDF =================
@@ -263,7 +274,6 @@ def generate_viron_pdf(rec):
     y_sign_box = pdf.get_y()
     pdf.cell(160, 24, "", border=1, ln=True)
     
-    # 动态加载签名数据（支持自存储或Base64反序列化）
     sigs = rec.get("签名Bytes列表", [])
     if not sigs and "签名Bytes列表_b64" in rec:
         sigs = [base64.b64decode(b) for b in rec["签名Bytes列表_b64"]]
@@ -294,13 +304,11 @@ def generate_viron_pdf(rec):
         "5. 【劳动防护用品 (PPE) 规范】：所有入场人员必须规范穿戴反光背心、安全帽、符合标准的安全鞋。高处作业必须正确系挂双大钩安全带（做到高挂低用），特种劳保用品严禁流于形式。",
         "6. 【消防安全与化学品管控】：厂区内全域严禁吸烟（除指定吸烟区外），严禁私自动用明火或遮挡、圈占消防器材。引入厂区使用的任何化学品必须提前报备并附带最新 SDS（安全数据表），落实防泄漏措施。",
         "7. 【危险废弃物合规处置】：施工作业中产生的废机油、废油漆桶、含油抹布、废化学品包装物等属于危险废弃物，必须分类收集并交由厂区指定的危废暂存点规范处置，严禁私自倾倒、掩埋或混入普通生活垃圾。",
-        "8. 【事故应急与隐患报告机制】：发生任何安全、环境事故（无论大小）或发现严重安全隐患，现场人员必须立即停止作业，并在第一时间向慧瑞现场负责人及 EHS 部门报告，严禁瞒报、谎报或拖延不报。"
+        "8. 【事故应急与隐患报告机制】：发生任何安全、环境事故（无论大小）或发现严重隐患，现场人员必须立即停止作业，并在第一时间向慧瑞现场负责人及 EHS 部门报告，严禁瞒报、谎报或拖延不报。"
     ]
-    combined_text = "
-".join(clauses)
+    combined_text = "\n".join(clauses)
     pdf.multi_cell(190, 4.5, combined_text, border=1, align="L")
     
-    # 动态加载证照数据
     certs = rec.get("证照Bytes列表", [])
     if not certs and "证照图片列表_b64" in rec:
         certs = [(name, base64.b64decode(b)) for name, b in rec["证照图片列表_b64"]]
@@ -326,9 +334,7 @@ def generate_viron_pdf(rec):
     pdf.cell(160, 7, f"  [√] {rec['考核方式']}", border=1, ln=True)
     
     eval_text = (
-        f"培训评估：[√] {rec['培训评估']}
-
-"
+        f"培训评估：[√] {rec['培训评估']}\n\n"
         f"                                              签署日期：{rec['签署日期']}          评价人：{rec['主讲人']}"
     )
     pdf.multi_cell(190, 6, eval_text, border=1)
@@ -595,7 +601,6 @@ with tab1:
                 "提交时间": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             
-            # 追加到内存并立即写入持久化 JSON 文件
             st.session_state.records.append(record)
             save_records(st.session_state.records)
             
@@ -606,9 +611,18 @@ with tab1:
 with tab2:
     st.subheader("🗂️ 已完成培训人员台账记录")
     
-    # 实时从文件重新加载，确保后台实时看到最新提交的数据
     st.session_state.records = load_records()
     
+    # 新增：清空后台所有台账记录的管理功能（归0）
+    if len(st.session_state.records) > 0:
+        with st.expander("⚙️ 管理员操作：清空台账记录"):
+            st.warning("⚠️ 注意：点击下方按钮将永久清空后台所有的培训历史记录，请在导出备份后再操作！")
+            if st.button("🗑️ 确认清空所有历史台账记录（归0）", type="primary"):
+                st.session_state.records = []
+                save_records([])
+                st.success("✅ 所有台账记录已成功清空并归零！")
+                st.rerun()
+
     if len(st.session_state.records) == 0:
         st.info("暂无签到记录，请先在第一个标签页完成提交。")
     else:
